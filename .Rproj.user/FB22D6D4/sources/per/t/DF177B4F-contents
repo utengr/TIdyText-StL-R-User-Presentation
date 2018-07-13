@@ -1,0 +1,53 @@
+library('tidyverse')
+library('rvest')
+
+base_url = 'https://www.indeed.com/jobs?as_and=human+resources&as_phr=&as_any=&as_not=&as_ttl=human+resources&as_cmp=&jt=fulltime&st=&salary=&radius=25&l=63116&fromage=any&limit=10&sort=date&psf=advsrch'
+
+num_pages = 10
+
+current_url = base_url
+
+titles = tibble()
+
+summaries = tibble()
+
+for (i in 1:num_pages) {
+  
+  current_url_page = read_html(current_url)
+  
+  ads = current_url_page %>%
+    html_nodes('[class="  row  result"]') 
+  
+  for (j in 1:length(ads)) {
+    
+    titles = ads[[j]] %>%
+      html_nodes('[class=jobtitle]') %>%
+      html_text() %>% 
+      as.tibble() %>% 
+      rbind(titles)
+    
+    summaries = ads[[j]] %>%
+      html_nodes('[class=summary]') %>%
+      html_text() %>%
+      as.tibble() %>%
+      rbind(summaries)
+    
+  }
+  
+  current_url = paste0(base_url, '&start=', as.character(i * 10))
+}
+
+
+#Analysis
+library(tidytext)
+options(tibble.print_max = Inf)
+
+summaries <- as.data.frame(summaries, stringsAsFactors = FALSE)
+summaries <- gsub("\\n", "", summaries[,1])
+summaries <- gsub("  ", "", summaries)
+
+text_df <- data_frame(text = summaries)
+text_df <- unnest_tokens(text_df, word, text)
+# text_df <- unnest_tokens(text_df, ngram, text, token = "ngrams", n = 2)
+text_df <- anti_join(text_df, stop_words)
+text_df <- text_df %>% count(word, sort = TRUE)
